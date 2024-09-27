@@ -1,14 +1,25 @@
 from sqlalchemy import create_engine, Column, Integer, String
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from pydantic import BaseModel
-# Configuração do banco de dados
-SQLALCHEMY_DATABASE_URL = "sqlite:///./indicadores.db"
+
+# Configuração do banco de dados (usando SQLite local)
+SQLALCHEMY_DATABASE_URL = "sqlite:///./database.db"  # O arquivo do banco de dados será chamado 'database.db'
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 
+# Cria uma sessão de banco de dados
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# Base declarativa usada para criar os modelos
 Base = declarative_base()
+
+# Definindo o modelo de Usuário
+class Usuario(Base):
+    __tablename__ = "usuarios"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True)
+    senha = Column(String)  # A senha será armazenada com hash
+    nome = Column(String)  # Novo campo
 
 # Definindo o modelo de Indicador
 class Indicador(Base):
@@ -23,19 +34,5 @@ class Indicador(Base):
     grupo = Column(String, index=True)
     responsavel = Column(String, index=True)
 
-
-
-# Modelo Pydantic para leitura de Indicadores (usado nas respostas)
-class IndicadorRead(BaseModel):
-    id: int
-    codigo: str
-    nome: str
-    area: str
-    unidade: str
-    classificador: str
-    grupo: str
-    responsavel: str
-
-    class Config:
-        orm_mode = True
-
+# Criar as tabelas no banco de dados
+Base.metadata.create_all(bind=engine)

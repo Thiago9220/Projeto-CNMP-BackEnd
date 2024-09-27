@@ -2,8 +2,8 @@ from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
-
 import database
+import bcrypt
 
 # Criação do aplicativo FastAPI
 app = FastAPI()
@@ -28,7 +28,65 @@ def get_db():
     finally:
         db.close()
 
-# Modelo Pydantic para validação de dados ao criar um novo indicador
+# Modelo Pydantic para criação de usuário
+class UsuarioCreate(BaseModel):
+    email: str
+    senha: str
+    nome: str  # Novo campo
+
+# Modelo Pydantic para retorno de informações do usuário
+class UsuarioRead(BaseModel):
+    id: int
+    email: str
+    nome: str  # Novo campo
+
+    class Config:
+        orm_mode = True
+
+# Endpoint para adicionar um novo usuário (com hash de senha)
+@app.post("/usuarios/", response_model=UsuarioRead)
+def create_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
+    # Verifica se o email já existe no banco de dados
+    db_usuario = db.query(database.Usuario).filter(database.Usuario.email == usuario.email).first()
+    if db_usuario:
+        raise HTTPException(status_code=400, detail="Email já cadastrado")
+
+    # Cria o hash da senha
+    hashed_senha = bcrypt.hashpw(usuario.senha.encode('utf-8'), bcrypt.gensalt())
+    
+    # Cria o novo usuário com a senha hash e o nome
+    novo_usuario = database.Usuario(email=usuario.email, senha=hashed_senha.decode('utf-8'), nome=usuario.nome)
+    db.add(novo_usuario)
+    db.commit()
+    db.refresh(novo_usuario)
+    return novo_usuario
+
+# Modelo Pydantic para login de usuário
+class UsuarioLogin(BaseModel):
+    email: str
+    senha: str
+
+# Endpoint para login
+@app.post("/login/")
+def login_usuario(usuario: UsuarioLogin, db: Session = Depends(get_db)):
+    # Verifica se o usuário existe
+    db_usuario = db.query(database.Usuario).filter(database.Usuario.email == usuario.email).first()
+    if not db_usuario:
+        raise HTTPException(status_code=400, detail="Usuário não encontrado")
+    
+    # Verifica se a senha está correta
+    if not bcrypt.checkpw(usuario.senha.encode('utf-8'), db_usuario.senha.encode('utf-8')):
+        raise HTTPException(status_code=400, detail="Senha incorreta")
+    
+    # Retorna um token de acesso fictício (você pode melhorar isso para um token JWT real)
+    return {"access_token": "seuTokenDeAutenticacao", "token_type": "bearer", "nome": db_usuario.nome}
+
+# Endpoint para obter a lista de usuários (opcional para debug)
+@app.get("/usuarios/", response_model=list[UsuarioRead])
+def get_usuarios(db: Session = Depends(get_db)):
+    return db.query(database.Usuario).all()
+
+# Modelo Pydantic para criação de Indicadores
 class IndicadorCreate(BaseModel):
     codigo: str
     nome: str
