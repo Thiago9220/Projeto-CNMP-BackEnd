@@ -124,3 +124,4 @@ def create_indicador(indicador: IndicadorCreate, db: Session = Depends(get_db)):
 def get_indicadores(db: Session = Depends(get_db)):
     indicadores = db.query(database.Indicador).all()
     return indicadores
+
