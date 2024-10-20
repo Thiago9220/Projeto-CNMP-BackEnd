@@ -19,7 +19,8 @@ class Usuario(Base):
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     senha = Column(String)  # A senha será armazenada com hash
-    nome = Column(String)  # Novo campo
+    nome = Column(String)  # Campo nome
+    perfil = Column(String)  # Novo campo para o perfil (usuario ou gestor)
 
 # Definindo o modelo de Indicador
 class Indicador(Base):
