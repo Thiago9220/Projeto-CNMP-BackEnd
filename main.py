@@ -33,12 +33,14 @@ class UsuarioCreate(BaseModel):
     email: str
     senha: str
     nome: str  # Novo campo
+    perfil: str  # Adicionar o campo perfil
 
 # Modelo Pydantic para retorno de informações do usuário
 class UsuarioRead(BaseModel):
     id: int
     email: str
     nome: str  # Novo campo
+    perfil: str  # Adicionar o campo perfil
 
     class Config:
         orm_mode = True
@@ -54,8 +56,13 @@ def create_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
     # Cria o hash da senha
     hashed_senha = bcrypt.hashpw(usuario.senha.encode('utf-8'), bcrypt.gensalt())
     
-    # Cria o novo usuário com a senha hash e o nome
-    novo_usuario = database.Usuario(email=usuario.email, senha=hashed_senha.decode('utf-8'), nome=usuario.nome)
+    # Cria o novo usuário com a senha hash e o perfil
+    novo_usuario = database.Usuario(
+        email=usuario.email, 
+        senha=hashed_senha.decode('utf-8'), 
+        nome=usuario.nome,
+        perfil=usuario.perfil  # Adicionar o perfil ao usuário
+    )
     db.add(novo_usuario)
     db.commit()
     db.refresh(novo_usuario)
@@ -78,8 +85,13 @@ def login_usuario(usuario: UsuarioLogin, db: Session = Depends(get_db)):
     if not bcrypt.checkpw(usuario.senha.encode('utf-8'), db_usuario.senha.encode('utf-8')):
         raise HTTPException(status_code=400, detail="Senha incorreta")
     
-    # Retorna um token de acesso fictício (você pode melhorar isso para um token JWT real)
-    return {"access_token": "seuTokenDeAutenticacao", "token_type": "bearer", "nome": db_usuario.nome}
+    # Retorna o token de acesso fictício (você pode melhorar isso para um token JWT real)
+    return {
+        "access_token": "seuTokenDeAutenticacao", 
+        "token_type": "bearer", 
+        "nome": db_usuario.nome,
+        "perfil": db_usuario.perfil  # Retornar o perfil do usuário
+    }
 
 # Endpoint para obter a lista de usuários (opcional para debug)
 @app.get("/usuarios/", response_model=list[UsuarioRead])
