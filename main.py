@@ -1,3 +1,4 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -6,10 +7,12 @@ from fastapi.staticfiles import StaticFiles
 import database
 import bcrypt
 import shutil
-import os
 
 # Criação do aplicativo FastAPI
 app = FastAPI()
+
+uploads_dir = "uploads"
+os.makedirs(uploads_dir, exist_ok=True)
 
 # Configuração do CORS
 app.add_middleware(
@@ -21,7 +24,7 @@ app.add_middleware(
 )
 
 # Monta o diretório de uploads para servir arquivos estáticos
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # Criar as tabelas no banco de dados
 database.Base.metadata.create_all(bind=database.engine)
