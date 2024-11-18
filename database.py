@@ -21,6 +21,7 @@ class Usuario(Base):
     senha = Column(String)  # A senha será armazenada com hash
     nome = Column(String)  # Campo nome
     perfil = Column(String)  # Novo campo para o perfil (usuario ou gestor)
+    foto_perfil = Column(String, nullable=True)
     
 
 # Definindo o modelo de Indicador

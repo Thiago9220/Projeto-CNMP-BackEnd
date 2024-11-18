@@ -1,9 +1,12 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import database
 import bcrypt
+import shutil
+import os
 
 # Criação do aplicativo FastAPI
 app = FastAPI()
@@ -16,6 +19,9 @@ app.add_middleware(
     allow_methods=["*"],  # Permite todos os métodos HTTP (GET, POST, etc.)
     allow_headers=["*"],  # Permite todos os cabeçalhos
 )
+
+# Monta o diretório de uploads para servir arquivos estáticos
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 # Criar as tabelas no banco de dados
 database.Base.metadata.create_all(bind=database.engine)
@@ -32,15 +38,16 @@ def get_db():
 class UsuarioCreate(BaseModel):
     email: str
     senha: str
-    nome: str  # Novo campo
+    nome: str
     perfil: str  # Adicionar o campo perfil
 
 # Modelo Pydantic para retorno de informações do usuário
 class UsuarioRead(BaseModel):
     id: int
     email: str
-    nome: str  # Novo campo
-    perfil: str  # Adicionar o campo perfil
+    nome: str
+    perfil: str
+    foto_perfil: str = None  # Novo campo
 
     class Config:
         orm_mode = True
@@ -90,7 +97,8 @@ def login_usuario(usuario: UsuarioLogin, db: Session = Depends(get_db)):
         "access_token": "seuTokenDeAutenticacao", 
         "token_type": "bearer", 
         "nome": db_usuario.nome,
-        "perfil": db_usuario.perfil  # Retornar o perfil do usuário
+        "perfil": db_usuario.perfil,
+        "usuario_id": db_usuario.id  # Retornar o ID do usuário
     }
 
 # Endpoint para obter a lista de usuários (opcional para debug)
@@ -142,3 +150,43 @@ def get_indicadores(db: Session = Depends(get_db)):
     indicadores = db.query(database.Indicador).all()
     return indicadores
 
+# Endpoint para atualizar o perfil do usuário
+@app.put("/usuarios/{usuario_id}/atualizar_perfil", response_model=UsuarioRead)
+async def atualizar_perfil(
+    usuario_id: int,
+    nome: str = Form(...),
+    senha_antiga: str = Form(...),
+    nova_senha: str = Form(...),
+    foto_perfil: UploadFile = File(None),
+    db: Session = Depends(get_db)
+):
+    usuario = db.query(database.Usuario).filter(database.Usuario.id == usuario_id).first()
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    # Verifica se a senha antiga está correta
+    if not bcrypt.checkpw(senha_antiga.encode('utf-8'), usuario.senha.encode('utf-8')):
+        raise HTTPException(status_code=400, detail="Senha antiga incorreta")
+
+    # Atualiza o nome e a nova senha
+    usuario.nome = nome
+    hashed_senha = bcrypt.hashpw(nova_senha.encode('utf-8'), bcrypt.gensalt())
+    usuario.senha = hashed_senha.decode('utf-8')
+
+    # Lida com o upload da foto de perfil
+    if foto_perfil:
+        # Define o caminho para salvar a imagem
+        upload_dir = "uploads/perfis"
+        os.makedirs(upload_dir, exist_ok=True)
+        file_extension = os.path.splitext(foto_perfil.filename)[1]
+        file_location = f"{upload_dir}/{usuario_id}{file_extension}"
+        
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(foto_perfil.file, buffer)
+        
+        # Atualiza o campo foto_perfil com o caminho do arquivo
+        usuario.foto_perfil = file_location
+
+    db.commit()
+    db.refresh(usuario)
+    return usuario
