@@ -4,7 +4,7 @@ import bcrypt
 from fastapi import FastAPI, Depends, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 import database
 
@@ -46,17 +46,16 @@ class UsuarioRead(BaseModel):
     email: str
     nome: str
     perfil: str
-    foto_perfil: str = None
+    foto_perfil: str | None = None
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @app.post("/usuarios/", response_model=UsuarioRead)
 def create_usuario(usuario: UsuarioCreate, db: Session = Depends(get_db)):
     db_usuario = db.query(database.Usuario).filter(database.Usuario.email == usuario.email).first()
     if db_usuario:
-        raise HTTPException(status_code=400, detail="Email jǭ cadastrado")
+        raise HTTPException(status_code=400, detail="Email ja cadastrado")
 
     hashed_senha = bcrypt.hashpw(usuario.senha.encode("utf-8"), bcrypt.gensalt())
 
@@ -81,7 +80,7 @@ class UsuarioLogin(BaseModel):
 def login_usuario(usuario: UsuarioLogin, db: Session = Depends(get_db)):
     db_usuario = db.query(database.Usuario).filter(database.Usuario.email == usuario.email).first()
     if not db_usuario:
-        raise HTTPException(status_code=400, detail="Usuǭrio nǜo encontrado")
+        raise HTTPException(status_code=400, detail="Usuario nao encontrado")
 
     if not bcrypt.checkpw(usuario.senha.encode("utf-8"), db_usuario.senha.encode("utf-8")):
         raise HTTPException(status_code=400, detail="Senha incorreta")
@@ -125,8 +124,7 @@ class IndicadorCreate(BaseModel):
 class IndicadorRead(IndicadorCreate):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @app.post("/indicadores/", response_model=IndicadorRead)
@@ -154,7 +152,7 @@ async def atualizar_perfil(
 ):
     usuario = db.query(database.Usuario).filter(database.Usuario.id == usuario_id).first()
     if not usuario:
-        raise HTTPException(status_code=404, detail="Usuǭrio nǜo encontrado")
+        raise HTTPException(status_code=404, detail="Usuario nao encontrado")
 
     if not bcrypt.checkpw(senha_antiga.encode("utf-8"), usuario.senha.encode("utf-8")):
         raise HTTPException(status_code=400, detail="Senha antiga incorreta")
